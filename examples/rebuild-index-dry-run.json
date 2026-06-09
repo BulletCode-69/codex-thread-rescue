@@ -1,0 +1,18 @@
+{
+  "dry_run": true,
+  "applied": false,
+  "blocked": null,
+  "scope": "all",
+  "prefix": null,
+  "cwd": null,
+  "session_index": "~/.codex/session_index.jsonl",
+  "safety_copy": null,
+  "stats": {
+    "original_records": 1,
+    "kept_records": 0,
+    "removed_target_records": 1,
+    "canonical_records": 2,
+    "final_records": 2,
+    "visible_threads": 2
+  }
+}
