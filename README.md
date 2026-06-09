@@ -1,19 +1,38 @@
 # Codex Thread Rescue
 
-A survival guide and a set of small, read-only diagnostics for a Codex Desktop bug where a project's threads disappear from the sidebar (the project shows `No chats`, or far fewer chats than you have), and come back missing again after a restart.
+> **Codex Desktop sidebar suddenly empty, showing `No chats`, or missing your threads after an update or restart? Your conversations are NOT lost.** This repository is a survival guide plus small, read-only tools to find every Codex thread again and keep working while the sidebar hides them.
 
-**Read this first:** this is **not** a tool that fixes the bug. The bug is upstream in Codex itself and, as of this writing, cannot be permanently repaired from your local machine. What this repository gives you is a way to (1) confirm your data is safe, (2) keep working without interruption, and (3) inspect local state read-only so you understand what is happening.
+This is **not** a tool that fixes the sidebar bug — that bug is upstream in Codex itself and can only be fixed by Codex. What this gives you is a calm, safe way to (1) confirm your data is intact, (2) find and reopen any hidden thread with `codex resume`, and (3) keep working without losing anything.
 
 The first rule of this repository is privacy: do not commit local Codex state, project names, real paths, local auth material, or generated reports from your machine.
 
-## The single most important fact
+## Is my data gone? No.
 
-**Your conversations are not lost.** When the sidebar goes blank, the threads still exist on disk. In every case we checked, the local database was healthy:
+If the Codex Desktop (Codex app) sidebar shows `No chats`, an empty project, or far fewer threads than you had, your threads still exist on disk in `state_5.sqlite` and are reachable with `codex resume <thread_id>` and Codex search. The failure is a **display** bug in the sidebar, not data loss. Do not reset, reinstall, or delete anything.
+
+In every case we checked, the local database was healthy:
 
 - `state_5.sqlite` is intact, with `PRAGMA integrity_check = ok`.
 - Every thread is still reachable through `codex resume` and through Codex search.
 
 So the failure is a *display* failure in Codex Desktop, not data loss. If the sidebar is empty, do not panic and do not start deleting or "repairing" anything. Your work is safe and accessible by other means.
+
+## Quick answers (FAQ)
+
+**My Codex threads disappeared from the sidebar after updating. Did I lose them?**
+No. The data is intact in `state_5.sqlite`; only the sidebar display is broken. Reach any thread with `codex resume <thread_id>` or Codex search.
+
+**A Codex project shows `No chats`, but I know I had conversations there.**
+The thread-to-project binding in the Desktop display cache was lost. The threads still exist. Use the resume index in this repo to list them and reopen them.
+
+**They reappeared when I asked Codex to restore them, then vanished again after a restart. Why?**
+That is expected. Re-binding the sidebar is temporary — only **pinning** survives a restart. Pin the few threads you need and reach the rest with `codex resume`.
+
+**How do I get a list of all my Codex threads with their resume commands?**
+Run the read-only `codex_thread_index.py` (see [docs/INDEX.md](docs/INDEX.md)). It builds a `project-thread-index.md` that maps every thread to `codex resume <thread_id>`.
+
+**Will reinstalling Codex or clearing state fix it?**
+No — and it risks making things worse. The data is fine; the bug is upstream. Keep working via the index, `codex resume`, and pinning until Codex ships a fix.
 
 ## Symptoms
 
