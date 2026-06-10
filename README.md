@@ -20,19 +20,22 @@ So the failure is a *display* failure in Codex Desktop, not data loss. If the si
 ## Quick answers (FAQ)
 
 **My Codex threads disappeared from the sidebar after updating. Did I lose them?**
-No. The data is intact in `state_5.sqlite`; only the sidebar display is broken. Reach any thread with `codex resume <thread_id>` or Codex search.
+No. The data is intact in `state_5.sqlite`; only the sidebar display is affected. Reach any thread with `codex resume <thread_id>`. The sidebar and in-app search show a bounded window of *recently active* threads — old threads age out of the window but are never deleted.
 
 **A Codex project shows `No chats`, but I know I had conversations there.**
-The thread-to-project binding in the Desktop display cache was lost. The threads still exist. Use the resume index in this repo to list them and reopen them.
+Threads that have not had recent activity have aged out of the recency window. They still exist and `codex resume <thread_id>` always works. Use the resume index in this repo to list them and bring any specific one back.
 
 **They reappeared when I asked Codex to restore them, then vanished again after a restart. Why?**
-That is expected. Re-binding the sidebar is temporary — only **pinning** survives a restart. Pin the few threads you need and reach the rest with `codex resume`.
+"Ask Codex to restore" only appeared to work: a Codex agent session runs inside the app, so its writes to local state are clobbered when the app exits. What *does* work persistently is giving a thread one actual turn of activity — `bash scripts/codex_thread_recall.sh <thread-id>` does this in one command. See [docs/PERSISTENCE.md](docs/PERSISTENCE.md) for the full verified model.
+
+**Does in-app search always find every thread?**
+No — search is also windowed the same way the sidebar is. Threads outside the recency window do not appear in search results. `codex resume <thread_id>` and the resume index are the always-working fallbacks.
 
 **How do I get a list of all my Codex threads with their resume commands?**
 Run the read-only `codex_thread_index.py` (see [docs/INDEX.md](docs/INDEX.md)). It builds a `project-thread-index.md` that maps every thread to `codex resume <thread_id>`.
 
 **Will reinstalling Codex or clearing state fix it?**
-No — and it risks making things worse. The data is fine; the bug is upstream. Keep working via the index, `codex resume`, and pinning until Codex ships a fix.
+No — and it risks making things worse. The data is fine; the bug is upstream. Keep working via the index, `codex resume`, and touch/recall until Codex ships a fix.
 
 ## Symptoms
 
@@ -45,32 +48,25 @@ No — and it risks making things worse. The data is fine; the bug is upstream. 
 
 This is the heart of this repository. These conclusions come from direct testing on an affected install, not from theory.
 
-### Works (the only thing that persists)
+### Works (verified)
 
-- **Pinning.** A pinned thread stays visible in the sidebar across restarts. This is the only action we found that reliably survives a restart.
-- **`codex resume` and search.** Your threads are always reachable this way, sidebar or not.
+- **Touching a thread with one turn of activity.** The sidebar and in-app search show a bounded window of recently active threads. `codex exec resume <id> --skip-git-repo-check "..."` puts a thread back into that window, persistently across restarts, until it ages out again. Use `scripts/codex_thread_recall.sh` for one thread, `scripts/codex_thread_touch.sh` for a list (zero-sum caveat: only the most recently touched ~window-size threads stay visible).
+- **`codex resume <thread-id>`.** Your threads are always reachable this way, sidebar or not.
+- **Pinning** (the pinned section renders from local `pinned-thread-ids`; programmatic editing while the app is fully quit persists — `scripts/codex_thread_pin.py`).
 
-### Does **not** persist (tempting traps)
+### Does **not** restore sidebar visibility (tempting traps)
 
-Each of these can make threads reappear *for the current session*, which is exactly why they are misleading. After a restart, the threads disappear again:
-
-- **Asking Codex to "restore this project's threads to the sidebar."** It can rebind them temporarily, but the binding is lost on the next restart.
-- **Fork-based bulk restore** of many threads at once.
-- **Hand-editing `.codex-global-state.json`** (the Desktop display cache).
-- **Running a metadata "backfill" / audit that reports e.g. "207/207 OK".** A clean audit does not mean the UI will keep showing the threads.
-
-If you try one of these and the threads come back, that is *expected* and *temporary*. Do not take it as a permanent fix.
+- **Editing local display caches** — `thread-project-assignments`, `thread-workspace-root-hints` in `.codex-global-state.json`, or `has_user_event` in `state_5.sqlite`. Edits made while the app is fully quit do persist on disk, but the sidebar does not consult these stores for listing (verified negative).
+- **Any edit made while the app is running** — including everything a Codex agent session does to local files. The app rewrites `.codex-global-state.json` from memory on exit, erasing such edits.
+- **Fork-based bulk restore.** Creates recently-active *copies*; the originals stay hidden and your projects fill with duplicates.
+- **Metadata "backfill" / audits reporting "207/207 OK".** A clean local audit is consistent with an empty-looking sidebar.
 
 ## The realistic workflow
 
-Because only pinning persists, the practical approach is to treat the sidebar as a small **working tray** rather than a complete archive:
-
 1. Confirm your data is safe (the diagnostics below will show the healthy database and the full thread count).
-2. Pin the handful of threads you are actively working on. They will stay visible across restarts.
-3. For everything else, rely on `codex resume` and search to reach older threads on demand.
-4. When you finish with a pinned thread, unpin it and pin the next one you need.
-
-This keeps you working through the bug instead of fighting a display cache that will not hold.
+2. Build the resume index (`scripts/codex_thread_index.py`) — your durable map to every thread, independent of what the sidebar shows.
+3. When you need an old thread in the UI, recall it: `bash scripts/codex_thread_recall.sh <keyword>` to find it, then `... <thread-id>` to touch it. It reappears in its project and in search.
+4. Accept that the sidebar is a recent-activity view, not an archive. Recall is cheap and repeatable; the index is the archive.
 
 To make step 3 reliable, keep a **resume index**: one `project-thread-index.md` per project listing each thread's id and its `codex resume <thread_id>` command, plus a master table across all projects. This is organization, not repair — it never touches Codex state — and it means that even with a blank sidebar you always have a durable map to every thread. You can build it with the read-only `codex_thread_index.py` script, or by asking Codex with the prompt in [docs/INDEX.md](docs/INDEX.md).
 
@@ -128,16 +124,17 @@ For keeping the index fresh on a schedule and resuming fast, see [docs/AUTOMATIO
 ## Experimental (not part of v0.1)
 
 Two metadata-rewriting helpers live under [`experimental/`](experimental/). They try to
-rebind threads to the sidebar, but in testing the effect does **not** survive a restart —
-they are the "does not persist" trap, kept only for inspection. They are not part of the
-supported v0.1 workflow. See [experimental/README.md](experimental/README.md) before touching them.
+rebind threads to the sidebar by editing local binding caches, but in testing this does **not**
+restore sidebar listing — the sidebar uses the recency window, not local binding caches. They
+are kept only for inspection and are not part of the supported workflow. See
+[experimental/README.md](experimental/README.md) before touching them.
 
 ## Safety policy
 
 - The supported tools (`doctor`, `index`, `resume`) open the Codex database **read-only** and never modify any Codex state file (`state_5.sqlite`, `session_index.jsonl`, `.codex-global-state.json`, `config.toml`) or any rollout file.
 - The only files these tools write are the report and index Markdown files you request. By default the index goes to a central private directory, not into your repositories.
 - They never edit thread message content, and never publish, upload, or push anything.
-- The `experimental/` helpers can write Desktop metadata, but only with an explicit `--apply`, are dry-run by default, refuse to run while Codex appears open, and write a safety copy first. Treat their output as temporary at best.
+- The `experimental/` helpers can write Desktop metadata, but only with an explicit `--apply`, are dry-run by default, refuse to run while Codex appears open, and write a safety copy first. Their writes do not restore sidebar listing (the sidebar uses the recency window — see [docs/PERSISTENCE.md](docs/PERSISTENCE.md)). Treat them as documentation-only.
 - Generated reports and indexes can contain local project names, paths, and thread ids. Keep them out of version control (the bundled `.gitignore` already does this) and review before sharing.
 
 More detail on the method and the cache surfaces involved: [docs/METHOD.md](docs/METHOD.md). Safety notes: [docs/SAFETY.md](docs/SAFETY.md).

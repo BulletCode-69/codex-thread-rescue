@@ -2,7 +2,7 @@
 
 The goal of automation here is narrow and honest: **always have a current, resume-ready index**, and **reopen any thread quickly** when the sidebar hides it. That is durable and safe.
 
-What this does **not** automate, on purpose: pushing threads back into the Codex Desktop sidebar. That does not survive a restart (only pinning does), and a "detect-missing → re-inject → it vanishes again" loop just fights the bug forever. So the durable design is *index + resume*, not *auto-revive*.
+What this does **not** automate, on purpose: continuously pushing threads back into the sidebar in the background. The sidebar shows a recency window — only the threads you actually use (or touch on demand) stay visible. Automating bulk re-touches is zero-sum and fights the window forever. So the durable design is *index + on-demand recall*, not *auto-revive*.
 
 ```
 state_5.sqlite  ──(read-only)──>  index (auto-updated)  ──>  codex resume <id>  ──>  pin the few you keep
@@ -71,7 +71,7 @@ python3 scripts/codex_thread_resume.py --query "auth"
 python3 scripts/codex_thread_resume.py --query "auth" --exec
 ```
 
-If you want a thread to stay visible in the sidebar afterward, **pin it** — that is the only action that persists across restarts.
+The touch that `codex resume` performs re-enters the thread into the recency window and persists across restarts (until it ages out). If you want a thread guaranteed visible without aging out, also pin it with `scripts/codex_thread_pin.py`.
 
 ## 3. Detect a disappearance (notify, don't auto-fix)
 
@@ -86,4 +86,4 @@ Run that on the same schedule as the index. The point is to *tell you* to fall b
 
 ## Why this is the safe shape
 
-Every step above is read-only on Codex state, never edits thread content or the Desktop cache surfaces, and never quits or restarts Codex. The only writes are plain Markdown index files you own. That keeps the automation aligned with the one durable truth: your data is always safe and resume-reachable, and the sidebar is best treated as a small pinned working tray rather than something to keep force-repairing.
+Every step above is read-only on Codex state (the notification step only runs the doctor read-only), never edits thread content or the Desktop cache surfaces, and never quits or restarts Codex. The only writes are plain Markdown index files you own. That keeps the automation aligned with the verified model: your data is always safe and resume-reachable via `codex resume`; the sidebar is a recency window, not an archive, and on-demand recall is the right tool rather than continuous force-repair.

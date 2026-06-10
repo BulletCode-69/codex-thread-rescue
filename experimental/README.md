@@ -3,18 +3,20 @@
 The two helpers in this directory can **write** Codex Desktop metadata to try to rebind
 threads to the project sidebar. They are kept here for inspection and study only.
 
-**They do not reliably work.** Based on direct testing on an affected install, any
-improvement they make to the sidebar does **not** survive a restart. They fall in the
-"does not persist" category described in the main [docs/METHOD.md](../docs/METHOD.md):
-re-binding the display cache repopulates the sidebar for the current session, and Codex
-drops the binding again on the next launch. The only action that persists is **pinning**.
+**They do not restore sidebar listing.** Based on direct testing on an affected install,
+editing local binding caches (`thread-project-assignments`,
+`thread-workspace-root-hints`) does not cause threads to reappear in the sidebar. The
+sidebar uses a recency window — the only way to re-enter the window is actual thread
+activity. See [docs/PERSISTENCE.md](../docs/PERSISTENCE.md) for the full verified model.
 
 So nothing here is a fix. Do not rely on it. The supported, durable workflow is the
-read-only tooling in [`../scripts`](../scripts) plus pinning:
+read-only tooling in [`../scripts`](../scripts) plus touch/recall and pinning:
 
 - `codex_thread_doctor.py` — read-only diagnosis.
 - `codex_thread_index.py` — read-only resume index (keep every thread reachable).
 - `codex_thread_resume.py` — read-only resume launcher.
+- `codex_thread_recall.sh` — touch a specific thread to bring it back into the sidebar.
+- `codex_thread_pin.py` — persistently pin threads for a small always-visible working set.
 
 ## If you still want to experiment
 

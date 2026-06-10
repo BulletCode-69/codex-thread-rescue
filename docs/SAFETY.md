@@ -10,10 +10,11 @@ Before anything else: when the Codex Desktop sidebar goes blank, your conversati
 
 This matters for safety because chasing a non-durable fix can lead you to edit state you should leave alone.
 
-- **Durable:** pinning a thread keeps it in the sidebar across restarts. This is the recommended workaround.
-- **Not durable:** asking Codex to restore the sidebar, fork-based bulk restore, hand-editing `.codex-global-state.json`, or running a backfill/audit that reports a clean result (e.g. "207/207 OK"). These can repopulate the sidebar for the current session and then lose it again on restart. A passing audit does **not** mean the UI will keep the threads.
+- **Durable — touch/recall:** giving a thread one trivial turn of activity (`codex exec resume <id> --skip-git-repo-check "..."` — what `scripts/codex_thread_recall.sh` does) puts it back into the recency window persistently across restarts, until it ages out again. This is the recommended on-demand workaround.
+- **Durable — pinning:** a pinned thread stays in the sidebar across restarts (`scripts/codex_thread_pin.py`). Useful for a small working set you want always visible.
+- **Not durable:** asking Codex to restore the sidebar, fork-based bulk restore, hand-editing `thread-project-assignments` or `thread-workspace-root-hints` in `.codex-global-state.json`, or running a backfill/audit that reports a clean result (e.g. "207/207 OK"). These can repopulate the sidebar for the current session and then lose it again on restart. A passing audit does **not** mean the UI will keep the threads.
 
-Treat any temporary reappearance as exactly that — temporary — and prefer pinning plus `codex resume`/search over repeated cache surgery.
+Treat any temporary reappearance as exactly that — temporary — and prefer touch/recall plus `codex resume`/search over repeated cache surgery.
 
 ## Do Not Commit
 
@@ -56,8 +57,9 @@ thread rows in `state_5.sqlite`. `codex_thread_rebind_metadata.py` can update De
 metadata in `.codex-global-state.json`, and can add missing `[projects]` entries to
 `config.toml` when `--update-config` is passed.
 
-**Honest expectation:** applying these does **not** reliably survive a restart — they fall in
-the "not durable" category above, which is why they are isolated. Pinning remains the
-dependable option.
+**Honest expectation:** applying these does **not** reliably restore sidebar listing — the
+sidebar uses the recency window, not local binding caches (see [docs/PERSISTENCE.md](PERSISTENCE.md)).
+They fall in the "not durable" category above, which is why they are isolated. Touch/recall
+and pinning are the dependable options.
 
 Neither helper edits thread message content.
